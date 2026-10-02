@@ -1,0 +1,4 @@
+config,map50_1lux,map50_5lux,map50_10lux,map50_50lux,map50_200lux,map50_1000lux,map_overall
+B0_human_isp,,,,,,,
+B1_task_fixed,,,,,,,
+B3_closed_loop,,,,,,,

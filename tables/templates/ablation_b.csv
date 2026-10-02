@@ -1,0 +1,5 @@
+ablation_id,description,map50_low_lux,control_overhead_ms
+B_A1_no_tone_pca,Without Tone PCA basis,, 
+B_A2_no_ema,Without EMA smoothing,, 
+B_A3_rule_based,Rule-based controller,, 
+B_A4_full_mlp,MLP closed-loop controller,, 

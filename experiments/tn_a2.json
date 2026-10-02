@@ -1,0 +1,30 @@
+{
+  "experiment_id": "TN-A2",
+  "name": "Glass-to-Decision Latency and Energy Benchmarking",
+  "target_board": "kv260",
+  "iterations_per_config": 5,
+  "frames_per_iteration": 10000,
+  "cooldown_seconds": 15,
+  "configurations": [
+    {
+      "id": "BA1",
+      "executable": "baseline_ba",
+      "args": "--mode ba1 --model yolox_nano.xmodel --frames 10000 --led"
+    },
+    {
+      "id": "BA2",
+      "executable": "baseline_ba",
+      "args": "--mode ba2 --model yolox_nano.xmodel --frames 10000 --led"
+    },
+    {
+      "id": "BA3",
+      "executable": "baseline_ba3",
+      "args": "--model yolox_nano.xmodel --frames 10000 --led"
+    },
+    {
+      "id": "PTACo",
+      "executable": "taco_app",
+      "args": "--xmodel yolox_nano.xmodel --params regs/default.txt --basis regs/tone_basis.txt --ctrl off --frames 10000 --led"
+    }
+  ]
+}

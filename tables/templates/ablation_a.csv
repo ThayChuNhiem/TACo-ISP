@@ -1,0 +1,11 @@
+ablation_id,description,fps,latency_p99_ms,ddr_traffic_mb_per_frame,cpu_util_percent
+A1_no_zerocopy,Disable zero-copy with memcpy,,,,, 
+A2_m2m_preproc,Frame-based PL preproc (m2m),,,,, 
+A3_nbuf_1,Single frame buffer (no pipelining),,,,, 
+A3_nbuf_2,Double buffering,,,,, 
+A3_nbuf_3,Triple buffering (Proposed),,,,, 
+A4_display_off,Display branch disabled,,,,, 
+A4_display_on,Display branch enabled (bus contention),,,,, 
+A7_polling,Polling mode,,,,, 
+A7_irq,Interrupt mode (UIO),,,,, 
+A7_isolcpus,CPU core isolation (isolcpus),,,,, 

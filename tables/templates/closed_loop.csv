@@ -1,0 +1,4 @@
+video_sequence,lux_transition,map50_static,map50_closed_loop,recovery_time_frames,flicker_score
+seq01_dimmer_dark_to_bright,5_to_200,,,, 
+seq02_dimmer_bright_to_dark,200_to_5,,,, 
+seq03_outdoor_shadow,50_to_10,,,, 

@@ -1,0 +1,7 @@
+module,lut,lut_percent,ff,ff_percent,bram,bram_percent,uram,uram_percent,dsp,dsp_percent,fmax_mhz
+isp_top,,,,,,,,,,,
+s2t_top,,,,,,,,,,,
+DPUCZDX8G_B4096,,,,,,,,,,,
+axi_timer_gpio,,,,,,,,,,,
+Total_Design,,,,,,,,,,,
+KV260_Available,,,,,,,,,,,

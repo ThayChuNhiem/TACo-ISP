@@ -1,0 +1,4 @@
+model,map_float_twin,map_bitexact_twin,map_hw_replay,gap_float_hw,gap_bitexact_hw
+YOLOX_nano,,,,,
+YOLOX_s,,,,,
+SSD_MobileNetV2,,,,,

@@ -1,0 +1,5 @@
+config,capture_isp_ms,preproc_ms,dma_sync_ms,dpu_infer_ms,postproc_ms,total_latency_ms
+BA1_YOLOX_nano,,,,,,,
+BA2_YOLOX_nano,,,,,,,
+BA3_YOLOX_nano,,,,,,,
+PTACo_YOLOX_nano,,,,,,,

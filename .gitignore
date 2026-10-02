@@ -1,0 +1,42 @@
+# Build and compiler artifacts
+build/
+bin/
+obj/
+*.o
+*.so
+*.a
+*.out
+*.exe
+
+# Python cache & virtual environment
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+venv/
+.venv/
+*.egg-info/
+
+# Xilinx Vivado & Vitis HLS
+*.log
+*.jou
+prj_*/
+*.xo
+*.xclbin
+.Xil/
+v++*
+vitis_hls*
+*.str
+
+# Temporary test vectors & demo data
+hw/hls/tb/vec/
+results_demo/
+tables/demo/
+figs/demo/
+runs/
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
