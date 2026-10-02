@@ -122,16 +122,6 @@ taco-isp/
 
 ---
 
-## 👥 Phân công Trách nhiệm Nhóm Nghiên cứu
-
-| Thành viên | Trách nhiệm cốt lõi | Thư mục phụ trách chính | Đóng góp học thuật |
-| :---: | :--- | :--- | :---: |
-| **TV1** | **Phần cứng PL:** Thiết kế HLS ISP, Stream-to-Tensor, Vivado IPI, đóng timing, link DPU. | `hw/` | Đồng tác giả chính **Bài báo A** |
-| **TV2** | **Phần mềm PS & Đo lường:** Runtime C++17, VART zero-copy, đo độ trễ glass-to-decision, đo công suất 12V INA228, xử lý số liệu Bài A. | `sw/`, `measure/`, `experiments/`, `analysis/` | Đồng tác giả chính **Bài báo A** |
-| **TV3** | **AI & Dữ liệu:** Thu thập dataset RAW, twin PyTorch khớp bit, huấn luyện joint ISP-DPU, bộ điều khiển thích nghi. | `twin/`, `train/` | Tác giả chính **Bài báo B** |
-
----
-
 ## ⚡ Bắt đầu Nhanh (Quick Start)
 
 ### 1. Cài đặt môi trường trên máy tính cá nhân (Host)
