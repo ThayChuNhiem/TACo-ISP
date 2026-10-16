@@ -40,3 +40,13 @@ runs/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Local connection credentials & board configs (NEVER commit to git)
+.env
+*.local
+board_config.json
+scripts/board_setup/kv260_ip.txt
+scripts/board_setup/board_config.json
+scripts/w*/kv260_ip.txt
+scripts/w*/board_config.json
+

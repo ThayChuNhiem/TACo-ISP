@@ -1,0 +1,2 @@
+config,capture_isp_ms,preproc_ms,dma_sync_ms,dpu_infer_ms,postproc_ms,total_latency_ms
+BA1_YOLOX_nano_SYNTHETIC_DEMO,2.843,6.843,0.188,4.355,0.407,14.640
