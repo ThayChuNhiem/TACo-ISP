@@ -59,3 +59,30 @@ Mọi file CSV trong `results/summary/` và `tables/templates/` phải tuân th�
 - `closed_loop.csv`: Đánh giá mAP trên video chuyển sáng D4 (P-static vs P-loop).
 - `cost.csv`: Chi phí thời gian tính toán của bộ điều khiển trên Cortex-A53 (< 0.5 ms).
 - `ablation_b.csv`: Các ablation của Bài B (bỏ lượng tử hóa đầu vào, bỏ tone mapping nhận biết lượng tử...).
+
+---
+
+## 6. Dữ liệu thô đo công suất 12V (Raw Power Trace) - `raw_power.csv`
+- `timestamp_ms`: Dấu thời gian lấy mẫu từ MCU ESP32 / host (ms)
+- `voltage_v`: Điện áp đo trên đường 12V DC (V)
+- `current_a`: Dòng điện đo qua shunt 10 mΩ (A)
+- `power_w`: Công suất tức thời P = V × I (W)
+- `gpio_mark`: Cờ đồng bộ từ KV260 (1 = trong cửa sổ thực thi pipeline, 0 = ngoài cửa sổ / idle)
+
+---
+
+## 7. Dữ liệu thô dấu thời gian phân tầng độ trễ (Raw Stage Timestamps) - `raw_timestamps.csv`
+- `frame_id`: Số thứ tự khung hình
+- `t_sof_ns`: Dấu thời gian Start of Frame (ns)
+- `t_pre_done_ns`: Dấu thời gian hoàn tất tiền xử lý (ns)
+- `t_dpu_start_ns`: Dấu thời gian bắt đầu gọi DPU execute_async (ns)
+- `t_dpu_end_ns`: Dấu thời gian DPU thực thi xong (ns)
+- `t_nms_done_ns`: Dấu thời gian hoàn tất giải mã YOLOX và NMS (ns)
+- `capture_isp_ms`: Thời gian thu nhận & ISP (ms)
+- `preproc_ms`: Thời gian tiền xử lý CPU/NEON/S2T (ms)
+- `dma_sync_ms`: Thời gian sync DMA / bộ đệm (ms)
+- `dpu_infer_ms`: Thời gian suy luận DPU (ms)
+- `postproc_ms`: Thời gian hậu xử lý NMS (ms)
+- `total_ms`: Tổng thời gian từ t_sof đến t_nms_done (ms)
+- `num_dets`: Số lượng bounding box phát hiện
+

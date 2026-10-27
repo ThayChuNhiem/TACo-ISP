@@ -49,18 +49,25 @@
 #endif
 
 #include "yolox_post.hpp"
+#include "uio.hpp"
 
 namespace {
 
 using Clock = std::chrono::high_resolution_clock;
 
 struct TimingRecord {
-    double capture_isp_ms;
-    double preproc_ms;
-    double dma_sync_ms;
-    double dpu_infer_ms;
-    double postproc_ms;
-    double total_ms;
+    uint64_t t_sof_ns = 0;
+    uint64_t t_pre_done_ns = 0;
+    uint64_t t_dpu_start_ns = 0;
+    uint64_t t_dpu_end_ns = 0;
+    uint64_t t_nms_done_ns = 0;
+    double capture_isp_ms = 0.0;
+    double preproc_ms = 0.0;
+    double dma_sync_ms = 0.0;
+    double dpu_infer_ms = 0.0;
+    double postproc_ms = 0.0;
+    double total_ms = 0.0;
+    size_t num_dets = 0;
 };
 
 struct Config {
@@ -70,6 +77,7 @@ struct Config {
     std::string device_path = "";
     std::string input_file = "";
     std::string csv_path = "ba1_latency.csv";
+    std::string raw_csv_path = "";
     int num_frames = 100;
     int warmup_frames = 5;
     int input_w = 1920;
@@ -78,7 +86,11 @@ struct Config {
     int target_h = 416;
     int num_classes = 80;
     bool enable_led = false;
+    int led_pin = 338;
     bool dummy_dpu = false;
+    uint64_t timer_freq_hz = taco::HwClock::DEFAULT_FREQ_HZ;
+    std::string uio_timer_path = "/dev/uio0";
+    std::string uio_gpio_path = "/dev/uio1";
 };
 
 void print_usage(const char* prog) {
@@ -94,6 +106,11 @@ void print_usage(const char* prog) {
               << "  --out-w <W>            Model input width (default: 416)\n"
               << "  --out-h <H>            Model input height (default: 416)\n"
               << "  --csv <path>           Path to save latency measurements\n"
+              << "  --raw-csv <path>       Path to save detailed per-frame stage timestamps CSV\n"
+              << "  --timer-freq <hz>      AXI Timer frequency in Hz (default: 100000000)\n"
+              << "  --uio-timer <dev>      UIO device path for AXI Timer (default: /dev/uio0)\n"
+              << "  --uio-gpio <dev>       UIO device path for AXI GPIO (default: /dev/uio1)\n"
+              << "  --led-pin <pin>        GPIO pin number for LED trigger (default: 338)\n"
               << "  --led                  Toggle GPIO trigger for glass-to-decision measurement\n"
               << "  --dummy                Force dummy DPU inference (for software integration test)\n"
               << "  --help                 Show this help message\n";
@@ -124,6 +141,16 @@ Config parse_args(int argc, char** argv) {
                 cfg.target_h = std::stoi(argv[++i]);
             } else if (arg == "--csv" && i + 1 < argc) {
                 cfg.csv_path = argv[++i];
+            } else if (arg == "--raw-csv" && i + 1 < argc) {
+                cfg.raw_csv_path = argv[++i];
+            } else if (arg == "--timer-freq" && i + 1 < argc) {
+                cfg.timer_freq_hz = std::stoull(argv[++i]);
+            } else if (arg == "--uio-timer" && i + 1 < argc) {
+                cfg.uio_timer_path = argv[++i];
+            } else if (arg == "--uio-gpio" && i + 1 < argc) {
+                cfg.uio_gpio_path = argv[++i];
+            } else if (arg == "--led-pin" && i + 1 < argc) {
+                cfg.led_pin = std::stoi(argv[++i]);
             } else if (arg == "--led") {
                 cfg.enable_led = true;
             } else if (arg == "--dummy") {
@@ -215,6 +242,24 @@ int main(int argc, char** argv) {
         std::cout << "  OpenCV Optimization: ENABLED (NEON instruction set)\n";
     }
 
+    // 0. Khởi tạo UIO Hardware Clock (AXI Timer 64-bit) & GPIO Trigger
+    taco::UioDevice uio_timer(cfg.uio_timer_path);
+    taco::UioDevice uio_gpio(cfg.uio_gpio_path);
+    taco::HwClock hw_clock(&uio_timer, cfg.timer_freq_hz);
+    taco::Gpio gpio_led(cfg.led_pin, &uio_gpio, 0);
+
+    if (cfg.enable_led) {
+        gpio_led.export_pin();
+        gpio_led.set_direction(true);
+        gpio_led.clear();
+        std::cout << "  [✓] GPIO Latency Trigger: ENABLED (Pin " << cfg.led_pin << ")\n";
+    }
+    if (hw_clock.has_hardware()) {
+        std::cout << "  [✓] Hardware Timer: AXI Timer 64-bit @ " << (cfg.timer_freq_hz / 1000000.0) << " MHz via " << cfg.uio_timer_path << "\n";
+    } else {
+        std::cout << "  [i] Hardware Timer: High-resolution steady_clock fallback (" << (cfg.timer_freq_hz / 1000000.0) << " MHz virtual ticks)\n";
+    }
+
     // 1. Chuẩn bị nguồn dữ liệu đầu vào (V4L2 Camera hoặc File)
     cv::VideoCapture cap;
     bool using_live_camera = false;
@@ -238,7 +283,7 @@ int main(int argc, char** argv) {
         }
         for (const auto& path : sample_candidates) {
             if (load_frame_file(path, cfg.input_w, cfg.input_h, fallback_frame, raw_bayer_frame)) {
-                std::cout << "  [✓] Tự động nạp ảnh mẫu RAW10 từ Tuần 2: " << path << "\n";
+                std::cout << "  [✓] Auto-loaded RAW10 sample frame: " << path << "\n";
                 break;
             }
         }
@@ -415,7 +460,11 @@ int main(int argc, char** argv) {
         const size_t num_pixels = static_cast<size_t>(cfg.target_w) * cfg.target_h * 3;
 
         // --- BƯỚC 1: Thu nhận khung hình & Debayer (Software ISP) ---
-        auto t0 = Clock::now();
+        uint64_t t_sof = hw_clock.now_ns();
+        if (cfg.enable_led) {
+            gpio_led.set();
+        }
+
         if (using_live_camera) {
             cap >> bgr_frame;
             if (bgr_frame.empty()) {
@@ -424,7 +473,7 @@ int main(int argc, char** argv) {
         } else {
             cv::cvtColor(raw_bayer_frame, bgr_frame, cv::COLOR_BayerRG2BGR);
         }
-        auto t1 = Clock::now();
+        uint64_t t1 = hw_clock.now_ns();
 
         // --- BƯỚC 2: Tiền xử lý CPU (Resize song tuyến tính + Lượng tử hóa INT8) ---
         cv::resize(bgr_frame, resized_frame, cv::Size(cfg.target_w, cfg.target_h), 0, 0, cv::INTER_LINEAR);
@@ -440,7 +489,7 @@ int main(int argc, char** argv) {
             float val = (static_cast<float>(src_ptr[i]) - 128.0f) * (scale / 128.0f);
             quantized_tensor[i] = static_cast<int8_t>(std::clamp(std::round(val), -128.0f, 127.0f));
         }
-        auto t2 = Clock::now();
+        uint64_t t_pre_done = hw_clock.now_ns();
 
         // --- BƯỚC 3: Đồng bộ bộ đệm / DMA Sync vào VART ---
         // Đối với BA1, dữ liệu phải memcpy từ bộ đệm CPU vào bộ đệm VART TensorBuffer
@@ -453,7 +502,7 @@ int main(int argc, char** argv) {
             }
         }
 #endif
-        auto t3 = Clock::now();
+        uint64_t t_dpu_start = hw_clock.now_ns();
 
         // --- BƯỚC 4: DPU Inference ---
 #ifdef HAVE_VART
@@ -473,7 +522,7 @@ int main(int argc, char** argv) {
                 // spin
             }
         }
-        auto t4 = Clock::now();
+        uint64_t t_dpu_end = hw_clock.now_ns();
 
         // --- BƯỚC 5: Hậu xử lý YOLOX + NMS ---
         const int8_t* out_ptr = nullptr;
@@ -509,17 +558,26 @@ int main(int argc, char** argv) {
 
         auto detections = post_proc.decode_and_nms(out_ptr, out_elements, out_fix_point);
         size_t num_dets = detections.size();
-        auto t5 = Clock::now();
+        uint64_t t_nms_done = hw_clock.now_ns();
+        if (cfg.enable_led) {
+            gpio_led.clear();
+        }
 
         if (!is_warmup) {
             total_detected_boxes += num_dets;
             TimingRecord rec;
-            rec.capture_isp_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
-            rec.preproc_ms     = std::chrono::duration<double, std::milli>(t2 - t1).count();
-            rec.dma_sync_ms    = std::chrono::duration<double, std::milli>(t3 - t2).count();
-            rec.dpu_infer_ms   = std::chrono::duration<double, std::milli>(t4 - t3).count();
-            rec.postproc_ms    = std::chrono::duration<double, std::milli>(t5 - t4).count();
-            rec.total_ms       = std::chrono::duration<double, std::milli>(t5 - t0).count();
+            rec.t_sof_ns       = t_sof;
+            rec.t_pre_done_ns  = t_pre_done;
+            rec.t_dpu_start_ns = t_dpu_start;
+            rec.t_dpu_end_ns   = t_dpu_end;
+            rec.t_nms_done_ns  = t_nms_done;
+            rec.capture_isp_ms = (t1 > t_sof) ? static_cast<double>(t1 - t_sof) / 1e6 : 0.0;
+            rec.preproc_ms     = (t_pre_done > t1) ? static_cast<double>(t_pre_done - t1) / 1e6 : 0.0;
+            rec.dma_sync_ms    = (t_dpu_start > t_pre_done) ? static_cast<double>(t_dpu_start - t_pre_done) / 1e6 : 0.0;
+            rec.dpu_infer_ms   = (t_dpu_end > t_dpu_start) ? static_cast<double>(t_dpu_end - t_dpu_start) / 1e6 : 0.0;
+            rec.postproc_ms    = (t_nms_done > t_dpu_end) ? static_cast<double>(t_nms_done - t_dpu_end) / 1e6 : 0.0;
+            rec.total_ms       = (t_nms_done > t_sof) ? static_cast<double>(t_nms_done - t_sof) / 1e6 : 0.0;
+            rec.num_dets       = num_dets;
             records.push_back(rec);
 
             if ((records.size() % 25 == 0) || records.size() == static_cast<size_t>(cfg.num_frames)) {
@@ -557,7 +615,7 @@ int main(int argc, char** argv) {
     std::string config_tag = !cfg.tag.empty() ? cfg.tag : ((cfg.mode == "ba2") ? "BA2_YOLOX_nano" : "BA1_YOLOX_nano");
 
     std::cout << "\n============================================================\n"
-              << "  KẾT QUẢ ĐO ĐỘ TRỄ BASELINE (" << config_tag << ")\n"
+              << "  BASELINE LATENCY BENCHMARK RESULT (" << config_tag << ")\n"
               << "============================================================\n"
               << "  Capture & ISP (p50): " << std::fixed << std::setprecision(2) << p50_capture << " ms\n"
               << "  CPU Preproc (p50):   " << p50_preproc << " ms\n"
@@ -568,8 +626,8 @@ int main(int argc, char** argv) {
               << "  Total Latency (p50): " << p50_total << " ms\n"
               << "  Total Latency (p95): " << p95_total << " ms\n"
               << "  Total Latency (p99): " << p99_total << " ms\n"
-              << "  Thông lượng (FPS):   " << fps << " FPS\n"
-              << "  Phát hiện (Boxes):   " << total_detected_boxes << " đối tượng\n"
+              << "  Throughput (FPS):    " << fps << " FPS\n"
+              << "  Detected (Boxes):    " << total_detected_boxes << " objects\n"
               << "============================================================\n";
 
     // Xuất CSV theo đúng schema chuẩn tại analysis/SCHEMAS.md:
@@ -586,7 +644,37 @@ int main(int argc, char** argv) {
                  << p50_post << ","
                  << p50_total << "\n";
         csv_file.close();
-        std::cout << "  [✓] Đã xuất file CSV chuẩn schema: " << cfg.csv_path << "\n";
+        std::cout << "  [✓] Exported CSV schema: " << cfg.csv_path << "\n";
+    }
+
+    // Xuất chi tiết raw timestamps nếu có cờ --raw-csv
+    if (!cfg.raw_csv_path.empty()) {
+        std::ofstream raw_file(cfg.raw_csv_path);
+        if (raw_file.is_open()) {
+            raw_file << "frame_id,t_sof_ns,t_pre_done_ns,t_dpu_start_ns,t_dpu_end_ns,t_nms_done_ns,"
+                     << "capture_isp_ms,preproc_ms,dma_sync_ms,dpu_infer_ms,postproc_ms,total_ms,num_dets\n";
+            for (size_t i = 0; i < records.size(); ++i) {
+                const auto& r = records[i];
+                raw_file << i << ","
+                         << r.t_sof_ns << ","
+                         << r.t_pre_done_ns << ","
+                         << r.t_dpu_start_ns << ","
+                         << r.t_dpu_end_ns << ","
+                         << r.t_nms_done_ns << ","
+                         << std::fixed << std::setprecision(4)
+                         << r.capture_isp_ms << ","
+                         << r.preproc_ms << ","
+                         << r.dma_sync_ms << ","
+                         << r.dpu_infer_ms << ","
+                         << r.postproc_ms << ","
+                         << r.total_ms << ","
+                         << r.num_dets << "\n";
+            }
+            raw_file.close();
+            std::cout << "  [✓] Exported Raw Stage Timestamps CSV: " << cfg.raw_csv_path << "\n";
+        } else {
+            std::cerr << "  [!] Không thể mở file raw CSV: " << cfg.raw_csv_path << "\n";
+        }
     }
 
     return 0;

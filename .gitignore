@@ -34,6 +34,7 @@ results_demo/
 tables/demo/
 figs/demo/
 runs/
+results/raw/W05_measurement/
 
 # IDE & OS
 .vscode/
@@ -50,3 +51,17 @@ scripts/board_setup/board_config.json
 scripts/w*/kv260_ip.txt
 scripts/w*/board_config.json
 
+# TV2 Personal Runbooks & Internal Notes (Local Only)
+*KeHoach_TV2.md
+HUONG_DAN_THU_CONG_MOBAXTERM_W1_W4.md
+RUT_KINH_NGHIEM_TV2.md
+SO_TAY_THUC_HIEN_TV2.md
+final_academic_report.md
+layer0_report.md
+*.xlsx
+
+# AI Assistant Instructions (Local Only - Untracked from GitHub)
+AGENTS.md
+GEMINI.md
+CLAUDE.md
+.agent/

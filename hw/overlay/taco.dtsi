@@ -1,0 +1,60 @@
+/dts-v1/;
+/plugin/;
+
+/**
+ * ============================================================================
+ * TACo-ISP — AMD Kria KV260 Device Tree Overlay (DTBO)
+ * ============================================================================
+ * Targets:
+ *   1. axi_timer_0: 64-bit Cascade Hardware Timer for Glass-to-Decision Latency
+ *      Base: 0x80030000, Size: 0x10000, Driver: generic-uio (uio_pdrv_genirq)
+ *      Default Frequency: 100 MHz (10 ns resolution) / 200 MHz option
+ *
+ *   2. axi_gpio_0: AXI GPIO for LED Latency Trigger & Power Measure Mark
+ *      Base: 0x80040000, Size: 0x10000, Driver: generic-uio
+ *
+ * Driver Binding:
+ *   Requires generic-uio driver:
+ *     modprobe uio_pdrv_genirq of_id="generic-uio"
+ *   Device nodes created in userspace:
+ *     /dev/uioX -> mapped by sw/common/uio.hpp (UioDevice, HwClock, Gpio)
+ * ============================================================================
+ */
+
+/ {
+    fragment@0 {
+        target = <&amba>;
+        __overlay__ {
+            #address-cells = <2>;
+            #size-cells = <2>;
+
+            /* AXI Timer 64-bit Cascade Counter */
+            axi_timer_0: timer@80030000 {
+                compatible = "generic-uio";
+                reg = <0x0 0x80030000 0x0 0x10000>;
+                interrupt-parent = <&gic>;
+                interrupts = <0 106 4>; /* PL to PS SPI interrupt (IRQ 106, rising edge) */
+                clock-frequency = <100000000>; /* 100 MHz PL clock (10 ns per tick) */
+                xlnx,count-width = <32>;
+                xlnx,gen0-assert = <1>;
+                xlnx,gen1-assert = <1>;
+                xlnx,one-timer-only = <0>; /* 2 cascaded 32-bit timers form 64-bit counter */
+                status = "okay";
+            };
+
+            /* AXI GPIO for LED Latency Trigger & INA228 Power Measurement Mark */
+            axi_gpio_0: gpio@80040000 {
+                compatible = "generic-uio";
+                reg = <0x0 0x80040000 0x0 0x10000>;
+                interrupt-parent = <&gic>;
+                interrupts = <0 107 4>; /* PL to PS SPI interrupt (IRQ 107, rising edge) */
+                #gpio-cells = <2>;
+                gpio-controller;
+                xlnx,all-inputs = <0>;
+                xlnx,all-outputs = <1>;
+                xlnx,gpio-width = <8>;
+                status = "okay";
+            };
+        };
+    };
+};
