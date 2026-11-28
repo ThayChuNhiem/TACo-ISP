@@ -1,0 +1,162 @@
+/dts-v1/;
+/plugin/;
+
+&fpga_full {
+firmware-name = "system_wrapper.bit.bin";
+};
+
+&amba {
+#address-cells = <2>;
+#size-cells = <2>;
+
+misc_clk_0: misc_clk_0 {
+#clock-cells = <0>;
+clock-frequency = <100000000>;
+compatible = "fixed-clock";
+};
+
+misc_clk_1: misc_clk_1 {
+#clock-cells = <0>;
+clock-frequency = <300000000>;
+compatible = "fixed-clock";
+};
+
+misc_clk_2: misc_clk_2 {
+#clock-cells = <0>;
+clock-frequency = <200000000>;
+compatible = "fixed-clock";
+};
+
+axi_gpio_0: gpio@a0000000 {
+#gpio-cells = <2>;
+clock-names = "s_axi_aclk";
+clocks = <&misc_clk_0>;
+compatible = "xlnx,axi-gpio-2.0", "xlnx,xps-gpio-1.00.a";
+gpio-controller;
+reg = <0x0 0xa0000000 0x0 0x10000>;
+xlnx,all-inputs = <0x0>;
+xlnx,all-outputs = <0x1>;
+xlnx,gpio-width = <0x4>;
+};
+
+axi_timer_0: timer@a0010000 {
+clock-frequency = <100000000>;
+clock-names = "s_axi_aclk";
+clocks = <&misc_clk_0>;
+compatible = "xlnx,axi-timer-2.0", "xlnx,xps-timer-1.00.a";
+reg = <0x0 0xa0010000 0x0 0x10000>;
+};
+
+mipi_csi2_rx_subsyst_0: mipi_csi2_rx_subsystem@a0020000 {
+compatible = "xlnx,mipi-csi2-rx-subsystem-5.0";
+reg = <0x0 0xa0020000 0x0 0x1000>;
+interrupt-parent = <&gic>;
+interrupts = <0 89 4>;
+clock-names = "lite_aclk", "video_aclk", "dphy_clk_200M";
+clocks = <&misc_clk_0>, <&misc_clk_1>, <&misc_clk_2>;
+xlnx,csi-pxl-format = "RAW10";
+xlnx,max-lanes = <2>;
+xlnx,ppc = <1>;
+xlnx,vfb;
+
+ports {
+#address-cells = <1>;
+#size-cells = <0>;
+
+port@0 {
+reg = <0>;
+xlnx,cfa-pattern = "rggb";
+xlnx,video-format = <12>;
+
+mipi_csi_out: endpoint {
+remote-endpoint = <&demosaic_in>;
+};
+};
+};
+};
+
+v_demosaic_0: v_demosaic@a0030000 {
+compatible = "xlnx,v-demosaic-1.1", "xlnx,v-demosaic";
+reg = <0x0 0xa0030000 0x0 0x10000>;
+interrupt-parent = <&gic>;
+interrupts = <0 90 4>;
+clocks = <&misc_clk_1>;
+reset-gpios = <&axi_gpio_0 0 1>;
+xlnx,max-height = <2160>;
+xlnx,max-width = <3840>;
+
+ports {
+#address-cells = <1>;
+#size-cells = <0>;
+
+port@0 {
+reg = <0>;
+xlnx,video-width = <10>;
+
+demosaic_in: endpoint {
+remote-endpoint = <&mipi_csi_out>;
+};
+};
+
+port@1 {
+reg = <1>;
+xlnx,video-width = <10>;
+
+demosaic_out: endpoint {
+remote-endpoint = <&vcap_in>;
+};
+};
+};
+};
+
+v_frmbuf_wr_0: v_frmbuf_wr@a0040000 {
+#dma-cells = <1>;
+compatible = "xlnx,axi-frmbuf-wr-v2.2", "xlnx,axi-frmbuf-wr-v2.1";
+reg = <0x0 0xa0040000 0x0 0x10000>;
+interrupt-parent = <&gic>;
+interrupts = <0 91 4>;
+clock-names = "ap_clk";
+clocks = <&misc_clk_1>;
+reset-gpios = <&axi_gpio_0 1 1>;
+xlnx,dma-addr-width = <32>;
+xlnx,dma-align = <16>;
+xlnx,max-height = <2160>;
+xlnx,max-width = <3840>;
+xlnx,pixels-per-clock = <1>;
+xlnx,vid-formats = "bgr888", "rgb888", "yuyv", "nv12";
+};
+
+vcap_csi {
+compatible = "xlnx,video";
+dmas = <&v_frmbuf_wr_0 0>;
+dma-names = "port0";
+
+ports {
+#address-cells = <1>;
+#size-cells = <0>;
+
+port@0 {
+reg = <0>;
+direction = "input";
+
+vcap_in: endpoint {
+remote-endpoint = <&demosaic_out>;
+};
+};
+};
+};
+
+dpuczdx8g_0: dpuczdx8g@400000000 {
+compatible = "xlnx,dpuczdx8g-4.1";
+reg = <0x4 0x00000000 0x0 0x1000000>;
+interrupt-parent = <&gic>;
+interrupts = <0 92 4>;
+clock-names = "s_axi_aclk", "m_axi_dpu_aclk";
+clocks = <&misc_clk_0>, <&misc_clk_1>;
+};
+
+zyxclmm_drm {
+compatible = "xlnx,zocl";
+status = "okay";
+};
+};
